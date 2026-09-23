@@ -30,3 +30,31 @@ if (getenv('WAIX_TEST_URL')) {
     try{$live->connections->list();throw new RuntimeException('Redirect should fail');}catch(WaixError $e){check($e->status===302,'Do not follow redirects');}
 }
 echo "PHP SDK: all contract, error and signature checks passed\n";
+foreach ([[429,'<html>wait</html>','API_ERROR'],[502,'bad','API_ERROR'],[302,'','REDIRECT_DISALLOWED'],[200,'null','INVALID_RESPONSE'],[200,'[]','INVALID_RESPONSE'],[200,'bad','INVALID_RESPONSE'],[200,str_repeat('x',1025),'RESPONSE_TOO_LARGE']] as [$status,$raw,$code]) {
+    $count=0;
+    $client=new Client('fixture',transport:static function()use($status,$raw,&$count){$count++;return ['status'=>$status,'body'=>$raw,'headers'=>['Retry-After'=>'7','X-Request-Id'=>'req-1']];},maxResponseBytes:1024);
+    try {$client->connections->list();throw new RuntimeException('Expected failure');}
+    catch(WaixError $e){check($e->status===$status&&$e->errorCode===$code&&$e->retryAfter==='7'&&$e->requestId==='req-1','Proxy response metadata');}
+    check($count===1,'No automatic retries');
+}
+$error=new WaixError('private',retryAfter:'60',body:['test_code'=>'123456']);
+check(!str_contains(json_encode($error),'123456'),'Safe error serialization');check($error->retryDelayMs()===60000,'Retry delay');
+$calls=[];
+$client=new Client('fixture',transport:static function($method,$url)use(&$calls){$calls[]=$url;return ['status'=>200,'headers'=>[],'body'=>json_encode(['data'=>[['id'=>count($calls)]],'pagination'=>count($calls)===1?['next_before'=>'date','next_before_id'=>'id']:['next_before'=>null,'next_before_id'=>null]])];});
+$items=$client->messages->iterate(['limit'=>1,'connection_id'=>$key]);check(count($calls)===0,'Lazy iteration');
+check(count(iterator_to_array($items))===2,'All pages');check(str_contains($calls[1],'before_id=id')&&str_contains($calls[1],'connection_id='),'Filters and composite cursor');
+$client=new Client('fixture',transport:static fn()=>['status'=>200,'headers'=>[],'body'=>'{"data":[],"pagination":{"next_before":"same","next_before_id":"same"}}']);
+try{iterator_to_array($client->messages->iterate());throw new RuntimeException('Repeated cursor must fail');}catch(WaixError $e){check($e->errorCode==='INVALID_PAGINATION','Repeated cursor');}
+echo "PHP SDK: proxy, response bounds, pagination and safe diagnostics passed\n";
+
+if (getenv('WAIX_TEST_URL')) {
+    $client=new Client('fixture',getenv('WAIX_TEST_URL'),maxResponseBytes:1024);
+    foreach (['html'=>'API_ERROR','oversize'=>'RESPONSE_TOO_LARGE','partial'=>'TRANSPORT_ERROR'] as $scenario=>$code) {
+        try{$client->request('GET','/transport/'.$scenario);throw new RuntimeException('Expected transport failure');}
+        catch(WaixError $e){check($e->errorCode===$code&&$e->requestId==='req-transport','Real cURL '.$scenario);}
+    }
+    $client=new Client('fixture',getenv('WAIX_TEST_URL'),timeoutMs:30);
+    try{$client->request('GET','/transport/timeout');throw new RuntimeException('Expected timeout');}
+    catch(WaixError $e){check($e->errorCode==='TIMEOUT','Real cURL timeout');}
+    echo "PHP SDK: real cURL HTML, size limit, incomplete body and timeout passed\n";
+}

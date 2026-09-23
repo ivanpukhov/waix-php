@@ -11,3 +11,5 @@ jobs:
         run: |
           docker run --rm --mount type=bind,src="$PWD",dst=/app -w /app composer:2@sha256:a5f59b9fd2faf31218632be4809dc6491761085e8064c31dc3b84378c48c248b validate --strict
           docker run --rm --mount type=bind,src="$PWD",dst=/app -w /app composer:2@sha256:a5f59b9fd2faf31218632be4809dc6491761085e8064c31dc3b84378c48c248b sh -c 'php -S 127.0.0.1:3342 tests/router.php >/tmp/server.log 2>&1 & test_server_pid=$!; trap "kill $test_server_pid" EXIT; sleep 1; WAIX_TEST_URL=http://127.0.0.1:3342/api/v1 php tests/client.php'
+      - name: PHP 8.1 minimum supported version
+        run: docker run --rm --mount type=bind,src="$PWD",dst=/app -w /app php:8.1-cli@sha256:76e563191d1ade120313a8736df24154d21da5155c0756f147c0b01bd19d9087 php tests/client.php
