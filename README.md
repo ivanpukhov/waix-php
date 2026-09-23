@@ -7,7 +7,7 @@
 ## Установка
 
 ```sh
-composer require waix/waix-php:^0.1
+composer require waix/waix-php:^0.2
 ```
 
 [Пакет Packagist](https://packagist.org/packages/waix/waix-php) · [Исходный код](https://github.com/ivanpukhov/waix-php)

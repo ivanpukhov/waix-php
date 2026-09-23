@@ -9,7 +9,7 @@ PHP 8.1+ SDK for WAIX WhatsApp Business API. Requires cURL and JSON. PSR-4 names
 Install from [Packagist](https://packagist.org/packages/waix/waix-php):
 
 ```sh
-composer require waix/waix-php:^0.1
+composer require waix/waix-php:^0.2
 ```
 
 No custom Composer repository is required.
